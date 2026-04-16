@@ -1,22 +1,24 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model cat_entrevistador {
   id         Int          @id @default(autoincrement()) @db.SmallInt
   nombre     String       @unique
   activo     Boolean?     @default(true)
+  codigo     String?
   entrevista entrevista[]
 }
 
 model cat_estado_civil {
   id         Int          @id @default(autoincrement()) @db.SmallInt
   nombre     String       @unique
+  codigo     String?
   entrevista entrevista[]
 }
 
@@ -28,9 +30,10 @@ model cat_nivel_academico {
 }
 
 model cat_pais {
-  id                         Int                          @id @default(autoincrement()) @db.SmallInt
-  nombre                     String                       @unique
-  entrevista_respuesta_extra entrevista_respuesta_extra[]
+  id                                                                            Int                          @id @default(autoincrement()) @db.SmallInt
+  nombre                                                                        String                       @unique
+  entrevista_respuesta_extra_entrevista_respuesta_extra_pais_madre_idTocat_pais entrevista_respuesta_extra[] @relation("entrevista_respuesta_extra_pais_madre_idTocat_pais")
+  entrevista_respuesta_extra_entrevista_respuesta_extra_pais_padre_idTocat_pais entrevista_respuesta_extra[] @relation("entrevista_respuesta_extra_pais_padre_idTocat_pais")
 }
 
 model cat_parentesco {
@@ -65,123 +68,226 @@ model cat_vinculacion_institucional {
 model entrevista {
   id                                   String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   estudiante_id                        String                                 @db.Uuid
-  fecha_entrevista                     DateTime?                              @db.Date
-  estado_civil_id                      Int?                                   @db.SmallInt
-  vinculacion_id                       Int?                                   @db.SmallInt
-  especificar_vinculacion              String?
+  fecha_entrevista                     DateTime                               @db.Date
+  estado_civil_id                      Int                                    @db.SmallInt
+  vinculacion_id                       Int                                    @db.SmallInt
+  especificar_vinculacion              String?                                @default("")
   entrevistador_id                     Int?                                   @db.SmallInt
   telefono                             String?
   ingreso_real                         Decimal?                               @db.Decimal(12, 2)
   aporte_mensual                       Decimal?                               @db.Decimal(12, 2)
-  observaciones                        String?
+  observaciones                        String?                                @default("")
   created_at                           DateTime?                              @default(now()) @db.Timestamptz(6)
   updated_at                           DateTime?                              @default(now()) @db.Timestamptz(6)
+  formulario                           String?
+  seccion                              String?
+  created_by                           BigInt?
+  updated_by                           BigInt?
+  users_entrevista_created_byTousers   users?                                 @relation("entrevista_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   cat_entrevistador                    cat_entrevistador?                     @relation(fields: [entrevistador_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  cat_estado_civil                     cat_estado_civil?                      @relation(fields: [estado_civil_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cat_estado_civil                     cat_estado_civil                       @relation(fields: [estado_civil_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   estudiante                           estudiante                             @relation(fields: [estudiante_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  cat_vinculacion_institucional        cat_vinculacion_institucional?         @relation(fields: [vinculacion_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_entrevista_updated_byTousers   users?                                 @relation("entrevista_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cat_vinculacion_institucional        cat_vinculacion_institucional          @relation(fields: [vinculacion_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   entrevista_hermano_exalumno          entrevista_hermano_exalumno[]
   entrevista_nivel_academico_referente entrevista_nivel_academico_referente[]
   entrevista_participante              entrevista_participante[]
   entrevista_respuesta_extra           entrevista_respuesta_extra?
   entrevista_respuesta_principal       entrevista_respuesta_principal?
+  entrevista_telefono                  entrevista_telefono[]
 
   @@index([estudiante_id], map: "idx_entrevista_estudiante")
 }
 
 model entrevista_hermano_exalumno {
-  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  entrevista_id   String      @db.Uuid
-  nombre          String
-  taller_id       Int?        @db.SmallInt
-  anio_graduacion Int?
-  created_at      DateTime?   @default(now()) @db.Timestamptz(6)
-  entrevista      entrevista  @relation(fields: [entrevista_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  cat_taller      cat_taller? @relation(fields: [taller_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                                                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entrevista_id                                       String      @db.Uuid
+  nombre                                              String
+  taller_id                                           Int?        @db.SmallInt
+  anio_graduacion                                     Int?
+  created_at                                          DateTime?   @default(now()) @db.Timestamptz(6)
+  created_by                                          BigInt?
+  updated_by                                          BigInt?
+  tipo_parentesco                                     String?
+  users_entrevista_hermano_exalumno_created_byTousers users?      @relation("entrevista_hermano_exalumno_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  entrevista                                          entrevista  @relation(fields: [entrevista_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cat_taller                                          cat_taller? @relation(fields: [taller_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_entrevista_hermano_exalumno_updated_byTousers users?      @relation("entrevista_hermano_exalumno_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([entrevista_id], map: "idx_hermano_entrevista")
 }
 
 model entrevista_nivel_academico_referente {
-  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  entrevista_id       String               @db.Uuid
-  rol                 String?
-  nivel_academico_id  Int?                 @db.SmallInt
-  duracion_anios      Int?                 @db.SmallInt
-  tipo_especifico     String?
-  entrevista          entrevista           @relation(fields: [entrevista_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  cat_nivel_academico cat_nivel_academico? @relation(fields: [nivel_academico_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                                                           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entrevista_id                                                String               @db.Uuid
+  rol                                                          String?
+  nivel_academico_id                                           Int?                 @db.SmallInt
+  duracion_anios                                               Int?                 @db.SmallInt
+  tipo_especifico                                              String?
+  estado_estudio_id                                            Int?                 @db.SmallInt
+  created_by                                                   BigInt?
+  updated_by                                                   BigInt?
+  users_entrevista_nivel_academico_referente_created_byTousers users?               @relation("entrevista_nivel_academico_referente_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  entrevista                                                   entrevista           @relation(fields: [entrevista_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cat_estado_estudio                                           cat_estado_estudio?  @relation(fields: [estado_estudio_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cat_nivel_academico                                          cat_nivel_academico? @relation(fields: [nivel_academico_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_entrevista_nivel_academico_referente_updated_byTousers users?               @relation("entrevista_nivel_academico_referente_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model entrevista_participante {
-  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  entrevista_id   String          @db.Uuid
-  nombre          String
-  parentesco_id   Int?            @db.SmallInt
-  parentesco_otro String?
-  created_at      DateTime?       @default(now()) @db.Timestamptz(6)
-  entrevista      entrevista      @relation(fields: [entrevista_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  cat_parentesco  cat_parentesco? @relation(fields: [parentesco_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                                              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entrevista_id                                   String          @db.Uuid
+  nombre                                          String
+  parentesco_id                                   Int?            @db.SmallInt
+  parentesco_otro                                 String?
+  created_at                                      DateTime?       @default(now()) @db.Timestamptz(6)
+  created_by                                      BigInt?
+  updated_by                                      BigInt?
+  users_entrevista_participante_created_byTousers users?          @relation("entrevista_participante_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  entrevista                                      entrevista      @relation(fields: [entrevista_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cat_parentesco                                  cat_parentesco? @relation(fields: [parentesco_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_entrevista_participante_updated_byTousers users?          @relation("entrevista_participante_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([entrevista_id], map: "idx_participante_entrevista")
 }
 
 model entrevista_respuesta_extra {
-  entrevista_id              String     @id @db.Uuid
-  condicion_salud            Boolean?
-  condicion_salud_detalle    String?
-  medicamento                String?
-  medicamento_detalle        String?
-  supervisor_extraescolar    String?
-  supervisor_otro            String?
-  padres_fuera               Boolean?
-  padres_fuera_detalle       String?
-  pais_residencia_id         Int?       @db.SmallInt
-  observaciones_padres_fuera String?
-  tipo_casa                  String?
-  tipo_casa_otro             String?
-  estado_padres              String?
-  convive_padres             String?
-  figuras_familiares         String?
-  hermanos_exalumnos_si_no   Boolean?
-  valoracion_familia         Int?       @db.SmallInt
-  entrevista                 entrevista @relation(fields: [entrevista_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  cat_pais                   cat_pais?  @relation(fields: [pais_residencia_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  entrevista_id                                               String     @id @db.Uuid
+  condicion_salud                                             Boolean?
+  condicion_salud_detalle                                     String?    @default("")
+  medicamento                                                 String?
+  medicamento_detalle                                         String?    @default("")
+  supervisor_extraescolar                                     String?    @default("")
+  supervisor_otro_especifico                                  String?    @default("")
+  padres_fuera                                                Boolean?
+  padres_fuera_detalle                                        String?    @default("")
+  observaciones_padres_fuera                                  String?    @default("")
+  tipo_casa                                                   String?    @default("")
+  tipo_casa_otro                                              String?
+  estado_padres                                               String?    @default("")
+  convive_padres                                              String?    @default("")
+  figuras_familiares                                          String?    @default("")
+  hermanos_exalumnos_si_no                                    Boolean?
+  valoracion_familia                                          Int?       @db.SmallInt
+  pais_madre_id                                               Int?       @db.SmallInt
+  pais_madre_otro                                             String?    @default("")
+  pais_padre_id                                               Int?       @db.SmallInt
+  pais_padre_otro                                             String?    @default("")
+  observaciones_internas                                      String?
+  created_by                                                  BigInt?
+  updated_by                                                  BigInt?
+  users_entrevista_respuesta_extra_created_byTousers          users?     @relation("entrevista_respuesta_extra_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  entrevista                                                  entrevista @relation(fields: [entrevista_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cat_pais_entrevista_respuesta_extra_pais_madre_idTocat_pais cat_pais?  @relation("entrevista_respuesta_extra_pais_madre_idTocat_pais", fields: [pais_madre_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cat_pais_entrevista_respuesta_extra_pais_padre_idTocat_pais cat_pais?  @relation("entrevista_respuesta_extra_pais_padre_idTocat_pais", fields: [pais_padre_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_entrevista_respuesta_extra_updated_byTousers          users?     @relation("entrevista_respuesta_extra_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model entrevista_respuesta_principal {
-  entrevista_id                 String     @id @db.Uuid
-  conducta                      String?
-  inconvenientes                String?
-  ayuda_psicologica             Boolean?
-  ayuda_psicologica_detalle     String?
-  zona_vivienda                 String?
-  habitos                       String?
-  actividades_familia           String?
-  tiempo_juntos                 String?
-  expectativas_centro           String?
-  agresion_ocurrida             Boolean?
-  agresiones_detalle            String?
-  convivencia                   String?
-  motivos_institucion           String?
-  dificultades_otra_institucion String?
-  descripcion_estudiante        String?
-  repitencia_sobreedad          String?
-  alfabetizacion                Boolean?
-  alfabetizacion_detalle        String?
-  motivacion_estudiante         String?
-  entrevista                    entrevista @relation(fields: [entrevista_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  entrevista_id                                          String     @id @db.Uuid
+  conducta                                               String?    @default("")
+  inconvenientes                                         String?    @default("")
+  ayuda_psicologica                                      Boolean?   @default(false)
+  ayuda_psicologica_detalle                              String?    @default("")
+  zona_vivienda                                          String?    @default("")
+  habitos                                                String?    @default("")
+  actividades_familia                                    String?    @default("")
+  tiempo_juntos                                          String?    @default("")
+  expectativas_centro                                    String?    @default("")
+  agresion_ocurrida                                      Boolean?
+  agresiones                                             String?
+  convivencia                                            String?    @default("")
+  motivos_institucion                                    String?    @default("")
+  dificultades_otra_institucion                          String?
+  descripcion_estudiante                                 String?    @default("")
+  repitencia_sobreedad                                   String?    @default("")
+  alfabetizacion                                         Boolean?
+  alfabetizacion_detalle                                 String?    @default("")
+  motivacion_estudiante                                  String?    @default("")
+  otra_institucion                                       Boolean?
+  created_by                                             BigInt?
+  updated_by                                             BigInt?
+  users_entrevista_respuesta_principal_created_byTousers users?     @relation("entrevista_respuesta_principal_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  entrevista                                             entrevista @relation(fields: [entrevista_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_entrevista_respuesta_principal_updated_byTousers users?     @relation("entrevista_respuesta_principal_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model estudiante {
-  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nombres    String
-  apellidos  String
-  sexo_id    Int?         @db.SmallInt
-  edad       Int?         @db.SmallInt
-  created_at DateTime?    @default(now()) @db.Timestamptz(6)
-  updated_at DateTime?    @default(now()) @db.Timestamptz(6)
-  entrevista entrevista[]
-  cat_sexo   cat_sexo?    @relation(fields: [sexo_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombres                            String
+  apellidos                          String
+  sexo_id                            Int          @db.SmallInt
+  edad                               Int          @db.SmallInt
+  created_at                         DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at                         DateTime?    @default(now()) @db.Timestamptz(6)
+  created_by                         BigInt?
+  updated_by                         BigInt?
+  entrevista                         entrevista[]
+  users_estudiante_created_byTousers users?       @relation("estudiante_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cat_sexo                           cat_sexo     @relation(fields: [sexo_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_estudiante_updated_byTousers users?       @relation("estudiante_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model cat_dueno_telefono {
+  id                  Int                   @id @db.SmallInt
+  codigo              String                @unique
+  nombre              String
+  entrevista_telefono entrevista_telefono[]
+}
+
+model cat_estado_estudio {
+  id                                   Int                                    @id @db.SmallInt
+  codigo                               String                                 @unique
+  nombre                               String
+  entrevista_nivel_academico_referente entrevista_nivel_academico_referente[]
+}
+
+model cat_tipo_vinculo_ipisa {
+  id                        Int      @id @db.SmallInt
+  codigo                    String   @unique
+  nombre                    String
+  requiere_parentesco_libre Boolean? @default(false)
+}
+
+model entrevista_telefono {
+  id                                          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entrevista_id                               String              @db.Uuid
+  numero                                      String
+  dueno_id                                    Int?                @db.SmallInt
+  orden                                       Int                 @default(1) @db.SmallInt
+  created_at                                  DateTime?           @default(now()) @db.Timestamptz(6)
+  created_by                                  BigInt?
+  updated_by                                  BigInt?
+  users_entrevista_telefono_created_byTousers users?              @relation("entrevista_telefono_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cat_dueno_telefono                          cat_dueno_telefono? @relation(fields: [dueno_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  entrevista                                  entrevista          @relation(fields: [entrevista_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_entrevista_telefono_updated_byTousers users?              @relation("entrevista_telefono_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                                                                                          BigInt                                 @id @default(autoincrement())
+  username                                                                                    String                                 @unique
+  password_hash                                                                               String
+  full_name                                                                                   String
+  role                                                                                        String
+  activo                                                                                      Boolean                                @default(true)
+  created_at                                                                                  DateTime?                              @default(now()) @db.Timestamptz(6)
+  entrevista_entrevista_created_byTousers                                                     entrevista[]                           @relation("entrevista_created_byTousers")
+  entrevista_entrevista_updated_byTousers                                                     entrevista[]                           @relation("entrevista_updated_byTousers")
+  entrevista_hermano_exalumno_entrevista_hermano_exalumno_created_byTousers                   entrevista_hermano_exalumno[]          @relation("entrevista_hermano_exalumno_created_byTousers")
+  entrevista_hermano_exalumno_entrevista_hermano_exalumno_updated_byTousers                   entrevista_hermano_exalumno[]          @relation("entrevista_hermano_exalumno_updated_byTousers")
+  entrevista_nivel_academico_referente_entrevista_nivel_academico_referente_created_byTousers entrevista_nivel_academico_referente[] @relation("entrevista_nivel_academico_referente_created_byTousers")
+  entrevista_nivel_academico_referente_entrevista_nivel_academico_referente_updated_byTousers entrevista_nivel_academico_referente[] @relation("entrevista_nivel_academico_referente_updated_byTousers")
+  entrevista_participante_entrevista_participante_created_byTousers                           entrevista_participante[]              @relation("entrevista_participante_created_byTousers")
+  entrevista_participante_entrevista_participante_updated_byTousers                           entrevista_participante[]              @relation("entrevista_participante_updated_byTousers")
+  entrevista_respuesta_extra_entrevista_respuesta_extra_created_byTousers                     entrevista_respuesta_extra[]           @relation("entrevista_respuesta_extra_created_byTousers")
+  entrevista_respuesta_extra_entrevista_respuesta_extra_updated_byTousers                     entrevista_respuesta_extra[]           @relation("entrevista_respuesta_extra_updated_byTousers")
+  entrevista_respuesta_principal_entrevista_respuesta_principal_created_byTousers             entrevista_respuesta_principal[]       @relation("entrevista_respuesta_principal_created_byTousers")
+  entrevista_respuesta_principal_entrevista_respuesta_principal_updated_byTousers             entrevista_respuesta_principal[]       @relation("entrevista_respuesta_principal_updated_byTousers")
+  entrevista_telefono_entrevista_telefono_created_byTousers                                   entrevista_telefono[]                  @relation("entrevista_telefono_created_byTousers")
+  entrevista_telefono_entrevista_telefono_updated_byTousers                                   entrevista_telefono[]                  @relation("entrevista_telefono_updated_byTousers")
+  estudiante_estudiante_created_byTousers                                                     estudiante[]                           @relation("estudiante_created_byTousers")
+  estudiante_estudiante_updated_byTousers                                                     estudiante[]                           @relation("estudiante_updated_byTousers")
 }
