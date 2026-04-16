@@ -1,35 +1,54 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/entrevista.controller');
+const { authenticateToken, authorizeRole } = require('../middlewares/auth.middleware');
 
-// ══════════════════════════════════════════════════════════════════
-// BÚSQUEDA — debe ir ANTES de /:id para no ser capturada como UUID
-// ══════════════════════════════════════════════════════════════════
-router.get('/buscar', controller.buscarEntrevista);
+// ================================================
+// Todas las rutas requieren estar autenticado
+// ================================================
+// Esto garantiza que el token se verifique SIEMPRE antes de cualquier ruta
+router.use(authenticateToken);
 
-// ══════════════════════════════════════════════════════════════════
-// STEP 1 — Crea estudiante + entrevista
-// ══════════════════════════════════════════════════════════════════
-router.post('/step1', controller.guardarStep1);
+// ================================================
+// BÚSQUEDA — debe ir ANTES de /:id
+// ================================================
+router.get('/buscar', 
+  authorizeRole('admin', 'supervisor', 'entrevistador'), 
+  controller.buscarEntrevista
+);
 
-// ══════════════════════════════════════════════════════════════════
-// STEP 2 — Entorno familiar
-// ══════════════════════════════════════════════════════════════════
-router.put('/:id/step2', controller.guardarStep2);
+// ================================================
+// STEP 1 — Crear estudiante + entrevista  → SOLO ADMIN
+// ================================================
+router.post('/step1', 
+  authorizeRole('admin'), 
+  controller.guardarStep1
+);
 
-// ══════════════════════════════════════════════════════════════════
-// STEP 3 — Expectativas / académico / teléfonos
-// ══════════════════════════════════════════════════════════════════
-router.put('/:id/step3', controller.guardarStep3);
+// ================================================
+// STEP 2, 3 y 4 — Edición → SOLO ADMIN
+// ================================================
+router.put('/:id/step2', 
+  authorizeRole('admin'), 
+  controller.guardarStep2
+);
 
-// ══════════════════════════════════════════════════════════════════
-// STEP 4 — Preguntas extras / hermanos exalumnos
-// ══════════════════════════════════════════════════════════════════
-router.put('/:id/step4', controller.guardarStep4);
+router.put('/:id/step3', 
+  authorizeRole('admin'), 
+  controller.guardarStep3
+);
 
-// ══════════════════════════════════════════════════════════════════
-// GET POR ID — Carga completa para lectura/edición
-// ══════════════════════════════════════════════════════════════════
-router.get('/:id', controller.getEntrevista);
+router.put('/:id/step4', 
+  authorizeRole('admin'), 
+  controller.guardarStep4
+);
+
+// ================================================
+// Ver una entrevista por ID → Permitido a Admin, Supervisor y Entrevistador
+// ================================================
+router.get('/:id', 
+  authorizeRole('admin', 'supervisor', 'entrevistador'), 
+  controller.getEntrevista
+);
 
 module.exports = router;

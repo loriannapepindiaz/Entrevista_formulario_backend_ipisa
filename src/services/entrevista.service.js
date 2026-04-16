@@ -306,31 +306,74 @@ exports.guardarStep4 = async (entrevistaId, data, userId = null) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// BUSCAR
+// BUSCAR POR NOMBRE O APELLIDO (mejorada para el frontend)
 // ══════════════════════════════════════════════════════════════════════════════
-exports.buscar = async (query) => {
-  return await prisma.entrevista.findMany({
-    where: {
-      estudiante: {
-        OR: [
-          { nombres:   { contains: query, mode: 'insensitive' } },
-          { apellidos: { contains: query, mode: 'insensitive' } },
-        ],
+exports.buscarPorNombre = async (query) => {
+  try {
+    if (!query || query.trim() === '') {
+      return [];
+    }
+
+    const searchTerm = query.trim();
+
+    const entrevistas = await prisma.entrevista.findMany({
+      where: {
+        estudiante: {
+          OR: [
+            { 
+              nombres: { 
+                contains: searchTerm, 
+                mode: 'insensitive' 
+              } 
+            },
+            { 
+              apellidos: { 
+                contains: searchTerm, 
+                mode: 'insensitive' 
+              } 
+            },
+          ],
+        },
       },
-    },
-    include: {
-      estudiante:                    true,
-      entrevista_participante:       true,
-      cat_entrevistador:             true,
-      cat_estado_civil:              true,
-      cat_vinculacion_institucional: true,
-    },
-    orderBy: { fecha_entrevista: 'desc' },
-  });
+      include: {
+        estudiante: true,
+        entrevista_participante: true,
+        cat_vinculacion_institucional: true,
+      },
+      orderBy: { 
+        fecha_entrevista: 'desc' 
+      },
+      take: 20,
+    });
+
+    // Formato esperado por el frontend ( { key, data } )
+    return entrevistas.map((entrevista) => ({
+      key: entrevista.id,
+      data: {
+        id:          entrevista.id,
+        nombres:     entrevista.estudiante?.nombres || '',
+        apellidos:   entrevista.estudiante?.apellidos || '',
+        fecha:       entrevista.fecha_entrevista 
+                       ? new Date(entrevista.fecha_entrevista).toLocaleDateString('es-DO', {
+                           year: 'numeric',
+                           month: 'long',
+                           day: 'numeric'
+                         })
+                       : 'Sin fecha',
+        formulario:  entrevista.formulario,
+        seccion:     entrevista.seccion,
+        vinculacion: entrevista.cat_vinculacion_institucional?.codigo || '',
+      }
+    }));
+
+  } catch (error) {
+    console.error('Error en buscarPorNombre:', error);
+    throw error;
+  }
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// GET POR ID
+// GET POR ID (para cargar entrevista completa)
 // ══════════════════════════════════════════════════════════════════════════════
 exports.getById = async (id) => {
   return await prisma.entrevista.findUnique({

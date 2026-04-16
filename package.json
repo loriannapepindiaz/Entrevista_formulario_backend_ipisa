@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "node server.js",
+    "start": "node server.js",
+    "seed:users": "node prisma/seed.js",
+    "prisma:generate": "prisma generate"
   },
   "repository": {
     "type": "git",
@@ -22,7 +25,15 @@
     "prisma": "^5.22.0"
   },
   "dependencies": {
+    "@dotenvx/dotenvx": "^1.61.0",
     "@prisma/client": "^5.22.0",
-    "dotenv": "^17.4.1"
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }
