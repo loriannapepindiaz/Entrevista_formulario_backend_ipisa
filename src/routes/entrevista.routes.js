@@ -3,51 +3,50 @@ const router = express.Router();
 const controller = require('../controllers/entrevista.controller');
 const { authenticateToken, authorizeRole } = require('../middlewares/auth.middleware');
 
-// ================================================
-// Todas las rutas requieren estar autenticado
-// ================================================
-// Esto garantiza que el token se verifique SIEMPRE antes de cualquier ruta
+// Todas las rutas requieren token
 router.use(authenticateToken);
 
 // ================================================
-// BÚSQUEDA — debe ir ANTES de /:id
+// BÚSQUEDA
 // ================================================
+// Permitimos a los 3 roles buscar. 
+// La lógica de "quién ve qué" se maneja dentro del controller.buscarEntrevista
 router.get('/buscar', 
-  authorizeRole('admin', 'supervisor', 'entrevistador'), 
+  authorizeRole('administrador', 'supervisor', 'entrevistador'), 
   controller.buscarEntrevista
 );
 
 // ================================================
-// STEP 1 — Crear estudiante + entrevista  → SOLO ADMIN
+// GUARDADO DE PASOS (Creación y Edición)
 // ================================================
+// CAMBIO CLAVE: Ahora los 3 roles pueden ejecutar el POST y los PUT
+// para que no te vuelva a salir el error 403.
+
 router.post('/step1', 
-  authorizeRole('admin'), 
+  authorizeRole('administrador', 'supervisor', 'entrevistador'), 
   controller.guardarStep1
 );
 
-// ================================================
-// STEP 2, 3 y 4 — Edición → SOLO ADMIN
-// ================================================
 router.put('/:id/step2', 
-  authorizeRole('admin'), 
+  authorizeRole('administrador', 'supervisor', 'entrevistador'), 
   controller.guardarStep2
 );
 
 router.put('/:id/step3', 
-  authorizeRole('admin'), 
+  authorizeRole('administrador', 'supervisor', 'entrevistador'), 
   controller.guardarStep3
 );
 
 router.put('/:id/step4', 
-  authorizeRole('admin'), 
+  authorizeRole('administrador', 'supervisor', 'entrevistador'), 
   controller.guardarStep4
 );
 
 // ================================================
-// Ver una entrevista por ID → Permitido a Admin, Supervisor y Entrevistador
+// VER DETALLE
 // ================================================
 router.get('/:id', 
-  authorizeRole('admin', 'supervisor', 'entrevistador'), 
+  authorizeRole('administrador', 'supervisor', 'entrevistador'), 
   controller.getEntrevista
 );
 

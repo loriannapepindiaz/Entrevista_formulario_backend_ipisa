@@ -1,5 +1,8 @@
 const prisma = require('../config/prisma');
 
+// ══════════════════════════════════════════════════════════════════════════════
+// FUNCIONES AUXILIARES (RESOLVERS) - Aseguran que retornen INT o NULL
+// ══════════════════════════════════════════════════════════════════════════════
 async function resolverSexoId(codigo) {
   const row = await prisma.cat_sexo.findFirst({ where: { codigo } });
   if (!row) throw new Error(`Sexo no encontrado: ${codigo}`);
@@ -68,10 +71,9 @@ async function resolverDuenoTelefonoId(nombre) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// STEP 1
+// STEP 1 - Crear estudiante + entrevista
 // ══════════════════════════════════════════════════════════════════════════════
 exports.guardarStep1 = async (data, userId = null) => {
-
   const [sexoId, vinculacionId] = await Promise.all([
     resolverSexoId(data.sexo),
     resolverVinculacionId(data.vinculacion),
@@ -79,10 +81,10 @@ exports.guardarStep1 = async (data, userId = null) => {
 
   const estudiante = await prisma.estudiante.create({
     data: {
-      nombres:   data.nombres,
+      nombres: data.nombres,
       apellidos: data.apellidos,
-      sexo_id:   sexoId,
-      edad:      Number(data.edad),
+      sexo_id: sexoId,
+      edad: Number(data.edad),
     },
   });
 
@@ -95,7 +97,7 @@ exports.guardarStep1 = async (data, userId = null) => {
     resolverEstadoEstudioId(data.duracion_madre),
     resolverNivelAcademicoId(data.nivel_padre),
     resolverEstadoEstudioId(data.duracion_padre),
-    resolverNivelAcademicoId(data.nivel_tutor  || null),
+    resolverNivelAcademicoId(data.nivel_tutor || null),
     resolverEstadoEstudioId(data.duracion_tutor || null),
   ]);
 
@@ -105,18 +107,20 @@ exports.guardarStep1 = async (data, userId = null) => {
 
   const entrevista = await prisma.entrevista.create({
     data: {
-      estudiante_id:           estudiante.id,
-      fecha_entrevista:        new Date(data.fecha),
-      formulario:              data.formulario || null,
-      seccion:                 data.seccion    || null,
-      estado_civil_id:         1,
-      vinculacion_id:          vinculacionId ?? 1,
+      estudiante_id: estudiante.id,
+      // SOLUCIÓN AL ERROR: Convertimos el userId a número
+      entrevistador_id: userId ? Number(userId) : null, 
+      fecha_entrevista: new Date(data.fecha),
+      formulario: data.formulario || null,
+      seccion: data.seccion || null,
+      estado_civil_id: 1,
+      vinculacion_id: vinculacionId ?? 1,
       especificar_vinculacion: data.especificar_vinculacion || '',
 
       entrevista_participante: {
         create: (data.entrevistados || []).map((e, i) => ({
-          nombre:          e.nombre,
-          parentesco_id:   parentescosIds[i],
+          nombre: e.nombre,
+          parentesco_id: parentescosIds[i],
           parentesco_otro: e.parentesco === 'otro' ? (e.parentesco_otro || null) : null,
         })),
       },
@@ -124,22 +128,22 @@ exports.guardarStep1 = async (data, userId = null) => {
       entrevista_nivel_academico_referente: {
         create: [
           {
-            rol:                'madre',
+            rol: 'madre',
             nivel_academico_id: nivelMadreId,
-            estado_estudio_id:  estadoMadreId,
-            tipo_especifico:    data.tipo_madre || null,
+            estado_estudio_id: estadoMadreId,
+            tipo_especifico: data.tipo_madre || null,
           },
           {
-            rol:                'padre',
+            rol: 'padre',
             nivel_academico_id: nivelPadreId,
-            estado_estudio_id:  estadoPadreId,
-            tipo_especifico:    data.tipo_padre || null,
+            estado_estudio_id: estadoPadreId,
+            tipo_especifico: data.tipo_padre || null,
           },
           ...(data.nivel_tutor ? [{
-            rol:                'tutor',
+            rol: 'tutor',
             nivel_academico_id: nivelTutorId,
-            estado_estudio_id:  estadoTutorId,
-            tipo_especifico:    data.tipo_tutor || null,
+            estado_estudio_id: estadoTutorId,
+            tipo_especifico: data.tipo_tutor || null,
           }] : []),
         ],
       },
@@ -150,78 +154,77 @@ exports.guardarStep1 = async (data, userId = null) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// STEP 2
+// STEP 2 - Entorno familiar
 // ══════════════════════════════════════════════════════════════════════════════
 exports.guardarStep2 = async (entrevistaId, data, userId = null) => {
-
   const estadoCivilId = await resolverEstadoCivilId(data.estado_civil);
 
   await prisma.entrevista.update({
     where: { id: entrevistaId },
-    data:  { estado_civil_id: estadoCivilId },
+    data: { estado_civil_id: estadoCivilId },
   });
 
-  const ayudaPsic     = data.ayuda_psic       === 'Si';
+  const ayudaPsic = data.ayuda_psic === 'Si';
   const agresionOcurr = data.agresion_ocurrida === 'Si';
 
   const payload = {
-    conducta:                  data.conducta            || '',
-    inconvenientes:            data.inconvenientes      || '',
-    ayuda_psicologica:         ayudaPsic,
+    conducta: data.conducta || '',
+    inconvenientes: data.inconvenientes || '',
+    ayuda_psicologica: ayudaPsic,
     ayuda_psicologica_detalle: ayudaPsic ? (data.ayuda_psic_detalle || '') : '',
-    zona_vivienda:             data.zona_vivienda       || '',
-    habitos:                   data.habitos             || '',
-    actividades_familia:       data.actividades_familia || '',
-    tiempo_juntos:             data.tiempo_juntos       || '',
-    expectativas_centro:       data.expectativas_centro || '',
-    agresion_ocurrida:         agresionOcurr,
-    agresiones:                agresionOcurr ? (data.agresiones || null) : null,
+    zona_vivienda: data.zona_vivienda || '',
+    habitos: data.habitos || '',
+    actividades_familia: data.actividades_familia || '',
+    tiempo_juntos: data.tiempo_juntos || '',
+    expectativas_centro: data.expectativas_centro || '',
+    agresion_ocurrida: agresionOcurr,
+    agresiones: agresionOcurr ? (data.agresiones || null) : null,
   };
 
   return await prisma.entrevista_respuesta_principal.upsert({
-    where:  { entrevista_id: entrevistaId },
+    where: { entrevista_id: entrevistaId },
     create: { entrevista_id: entrevistaId, ...payload },
     update: payload,
   });
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// STEP 3
+// STEP 3 - Expectativas y datos adicionales
 // ══════════════════════════════════════════════════════════════════════════════
 exports.guardarStep3 = async (entrevistaId, data, userId = null) => {
-
   const entrevistadorId = await resolverEntrevistadorId(data.entrevistador);
-  const telefonos       = data.telefonos || [];
-  const duenosIds       = await Promise.all(telefonos.map(t => resolverDuenoTelefonoId(t.dueno)));
+  const telefonos = data.telefonos || [];
+  const duenosIds = await Promise.all(telefonos.map(t => resolverDuenoTelefonoId(t.dueno)));
 
   await prisma.entrevista.update({
     where: { id: entrevistaId },
     data: {
-      entrevistador_id: entrevistadorId,
-      ingreso_real:     data.ingreso_real   ? parseFloat(String(data.ingreso_real).replace(/[^0-9.]/g, ''))   : null,
-      aporte_mensual:   data.aporte_mensual ? parseFloat(String(data.aporte_mensual).replace(/[^0-9.]/g, '')) : null,
-      observaciones:    data.observaciones  || '',
+      // Nos aseguramos de que el ID del catálogo sea número
+      entrevistador_id: entrevistadorId ? Number(entrevistadorId) : null,
+      ingreso_real: data.ingreso_real ? parseFloat(String(data.ingreso_real).replace(/[^0-9.]/g, '')) : null,
+      aporte_mensual: data.aporte_mensual ? parseFloat(String(data.aporte_mensual).replace(/[^0-9.]/g, '')) : null,
+      observaciones: data.observaciones || '',
     },
   });
 
   const otraInst = data.otra_institucion === 'Si';
-  const repitio  = data.repetido_curso   === 'Si';
-  const alfab    = data.alfabetizacion   === 'Si';
+  const repitio = data.repetido_curso === 'Si';
+  const alfab = data.alfabetizacion === 'Si';
 
   const payload = {
-    convivencia:                   data.convivencia      || '',
-    motivos_institucion:           data.motivos          || '',
-    otra_institucion:              otraInst,
+    convivencia: data.convivencia || '',
+    motivos_institucion: data.motivos || '',
+    otra_institucion: otraInst,
     dificultades_otra_institucion: otraInst ? (data.dificultades || null) : null,
-    descripcion_estudiante:        data.estudiante_descr || '',
-    repitencia_sobreedad:          repitio ? (data.repetido || '') : '',
-    alfabetizacion:                alfab,
-    alfabetizacion_detalle:        alfab ? (data.alfabetizacion_detalle || '') : '',
-    motivacion_estudiante:         data.motivacion || '',
+    descripcion_estudiante: data.estudiante_descr || '',
+    repitencia_sobreedad: repitio ? (data.repetido || '') : '',
+    alfabetizacion: alfab,
+    alfabetizacion_detalle: alfab ? (data.alfabetizacion_detalle || '') : '',
+    motivacion_estudiante: data.motivacion || '',
   };
 
   await prisma.entrevista_respuesta_principal.upsert({
-    where:  { entrevista_id: entrevistaId },
+    where: { entrevista_id: entrevistaId },
     create: { entrevista_id: entrevistaId, ...payload },
     update: payload,
   });
@@ -233,9 +236,9 @@ exports.guardarStep3 = async (entrevistaId, data, userId = null) => {
     await prisma.entrevista_telefono.createMany({
       data: telsFiltrados.map((t, i) => ({
         entrevista_id: entrevistaId,
-        numero:        t.numero.trim(),
-        dueno_id:      duenosIds[i],
-        orden:         i + 1,
+        numero: t.numero.trim(),
+        dueno_id: duenosIds[i],
+        orden: i + 1,
       })),
     });
   }
@@ -244,10 +247,9 @@ exports.guardarStep3 = async (entrevistaId, data, userId = null) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// STEP 4
+// STEP 4 - Preguntas extras
 // ══════════════════════════════════════════════════════════════════════════════
 exports.guardarStep4 = async (entrevistaId, data, userId = null) => {
-
   const hayPadresFuera = data.padres_fuera === 'Si';
 
   const [paisMadreId, paisPadreId] = await Promise.all([
@@ -256,30 +258,31 @@ exports.guardarStep4 = async (entrevistaId, data, userId = null) => {
   ]);
 
   const payload = {
-    condicion_salud:            data.condicion_salud === 'Si',
-    condicion_salud_detalle:    data.condicion_salud === 'Si' ? (data.condicion_salud_detalle || '') : '',
-    medicamento:                data.medicamento || '',
-    medicamento_detalle:        (data.medicamento === 'Si' || data.medicamento === 'Tal vez') ? (data.medicamento_detalle || '') : '',
-    supervisor_extraescolar:    data.supervisor_extraescolar || '',
+    condicion_salud: data.condicion_salud === 'Si',
+    condicion_salud_detalle: data.condicion_salud === 'Si' ? (data.condicion_salud_detalle || '') : '',
+    medicamento: data.medicamento || '',
+    medicamento_detalle: (data.medicamento === 'Si' || data.medicamento === 'Tal vez') ? (data.medicamento_detalle || '') : '',
+    supervisor_extraescolar: data.supervisor_extraescolar || '',
     supervisor_otro_especifico: data.supervisor_extraescolar === 'Otro' ? (data.supervisor_otro_especifico || '') : '',
-    padres_fuera:               hayPadresFuera,
-    padres_fuera_detalle:       hayPadresFuera ? (data.padres_fuera_detalle || '') : '',
-    pais_madre_id:              paisMadreId,
-    pais_madre_otro:            data.pais_madre === 'Otro' ? (data.pais_madre_otro || '') : '',
-    pais_padre_id:              paisPadreId,
-    pais_padre_otro:            data.pais_padre === 'Otro' ? (data.pais_padre_otro || '') : '',
+    padres_fuera: hayPadresFuera,
+    padres_fuera_detalle: hayPadresFuera ? (data.padres_fuera_detalle || '') : '',
+    pais_madre_id: paisMadreId,
+    pais_madre_otro: data.pais_madre === 'Otro' ? (data.pais_madre_otro || '') : '',
+    pais_padre_id: paisPadreId,
+    pais_padre_otro: data.pais_padre === 'Otro' ? (data.pais_padre_otro || '') : '',
     observaciones_padres_fuera: hayPadresFuera ? (data.observaciones_padres_fuera || '') : '',
-    tipo_casa:                  data.tipo_casa          || '',
-    estado_padres:              data.estado_padres       || '',
-    convive_padres:             data.convive_padres      || '',
-    figuras_familiares:         data.figuras_familiares  || '',
-    hermanos_exalumnos_si_no:   data.hermanos_exalumnos_si_no === 'Si',
-    valoracion_familia:         data.valoracion_familia ? Number(data.valoracion_familia) : null,
-    observaciones_internas:     data.observaciones_internas || null,
+    tipo_casa: data.tipo_casa || '',
+    estado_padres: data.estado_padres || '',
+    convive_padres: data.convive_padres || '',
+    figuras_familiares: data.figuras_familiares || '',
+    hermanos_exalumnos_si_no: data.hermanos_exalumnos_si_no === 'Si',
+    // Convertimos valoración a número por seguridad
+    valoracion_familia: data.valoracion_familia ? Number(data.valoracion_familia) : null,
+    observaciones_internas: data.observaciones_internas || null,
   };
 
   await prisma.entrevista_respuesta_extra.upsert({
-    where:  { entrevista_id: entrevistaId },
+    where: { entrevista_id: entrevistaId },
     create: { entrevista_id: entrevistaId, ...payload },
     update: payload,
   });
@@ -293,9 +296,9 @@ exports.guardarStep4 = async (entrevistaId, data, userId = null) => {
 
     await prisma.entrevista_hermano_exalumno.createMany({
       data: hermanos.map((h, i) => ({
-        entrevista_id:   entrevistaId,
-        nombre:          h.nombre || '',
-        taller_id:       tallerIds[i],
+        entrevista_id: entrevistaId,
+        nombre: h.nombre || '',
+        taller_id: tallerIds[i],
         anio_graduacion: h.anio ? Number(h.anio) : null,
         tipo_parentesco: h.tipo ? (h.otro_especifico ? `${h.tipo}: ${h.otro_especifico}` : h.tipo) : null,
       })),
@@ -306,66 +309,53 @@ exports.guardarStep4 = async (entrevistaId, data, userId = null) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// BUSCAR POR NOMBRE O APELLIDO (mejorada para el frontend)
+// BUSCAR POR NOMBRE O APELLIDO
 // ══════════════════════════════════════════════════════════════════════════════
-exports.buscarPorNombre = async (query) => {
+exports.buscarPorNombre = async (query, userId, rol) => {
   try {
-    if (!query || query.trim() === '') {
-      return [];
-    }
-
+    if (!query || query.trim() === '') return [];
     const searchTerm = query.trim();
 
-    const entrevistas = await prisma.entrevista.findMany({
-      where: {
-        estudiante: {
-          OR: [
-            { 
-              nombres: { 
-                contains: searchTerm, 
-                mode: 'insensitive' 
-              } 
-            },
-            { 
-              apellidos: { 
-                contains: searchTerm, 
-                mode: 'insensitive' 
-              } 
-            },
-          ],
-        },
+    const whereClause = {
+      estudiante: {
+        OR: [
+          { nombres: { contains: searchTerm, mode: 'insensitive' } },
+          { apellidos: { contains: searchTerm, mode: 'insensitive' } },
+        ],
       },
+    };
+
+    if (rol !== 'administrador' && rol !== 'supervisor') {
+      whereClause.entrevistador_id = Number(userId);
+    }
+
+    const entrevistas = await prisma.entrevista.findMany({
+      where: whereClause,
       include: {
         estudiante: true,
         entrevista_participante: true,
         cat_vinculacion_institucional: true,
       },
-      orderBy: { 
-        fecha_entrevista: 'desc' 
-      },
+      orderBy: { fecha_entrevista: 'desc' },
       take: 20,
     });
 
-    // Formato esperado por el frontend ( { key, data } )
     return entrevistas.map((entrevista) => ({
       key: entrevista.id,
       data: {
-        id:          entrevista.id,
-        nombres:     entrevista.estudiante?.nombres || '',
-        apellidos:   entrevista.estudiante?.apellidos || '',
-        fecha:       entrevista.fecha_entrevista 
-                       ? new Date(entrevista.fecha_entrevista).toLocaleDateString('es-DO', {
-                           year: 'numeric',
-                           month: 'long',
-                           day: 'numeric'
-                         })
-                       : 'Sin fecha',
-        formulario:  entrevista.formulario,
-        seccion:     entrevista.seccion,
+        id: entrevista.id,
+        nombres: entrevista.estudiante?.nombres || '',
+        apellidos: entrevista.estudiante?.apellidos || '',
+        fecha: entrevista.fecha_entrevista 
+                ? new Date(entrevista.fecha_entrevista).toLocaleDateString('es-DO', {
+                    year: 'numeric', month: 'long', day: 'numeric'
+                  })
+                : 'Sin fecha',
+        formulario: entrevista.formulario,
+        seccion: entrevista.seccion,
         vinculacion: entrevista.cat_vinculacion_institucional?.codigo || '',
       }
     }));
-
   } catch (error) {
     console.error('Error en buscarPorNombre:', error);
     throw error;
@@ -373,23 +363,23 @@ exports.buscarPorNombre = async (query) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// GET POR ID (para cargar entrevista completa)
+// GET POR ID
 // ══════════════════════════════════════════════════════════════════════════════
 exports.getById = async (id) => {
   return await prisma.entrevista.findUnique({
     where: { id },
     include: {
-      estudiante:                    true,
-      cat_estado_civil:              true,
+      estudiante: true,
+      cat_estado_civil: true,
       cat_vinculacion_institucional: true,
-      cat_entrevistador:             true,
+      cat_entrevistador: true,
       entrevista_participante: {
         include: { cat_parentesco: true },
       },
       entrevista_nivel_academico_referente: {
         include: {
           cat_nivel_academico: true,
-          cat_estado_estudio:  true,
+          cat_estado_estudio: true,
         },
       },
       entrevista_telefono: {
